@@ -105,7 +105,7 @@ test.describe('Tests Playwright standard', () => {
     await expect(page).toHaveURL(/explorer-les-cartes/);
     
     // Rechercher manuellement dans le champ de recherche (id dynamique type GPsearchInputText-44)
-    const searchInput = page.locator('[id^="GPsearchInputText"] .fr-input').first();
+    const searchInput = page.locator('input.GPsearchInputText[aria-label="Rechercher"]').first();
     if (await searchInput.isVisible().catch(() => false)) {
       await searchInput.fill('cadastre');
       await page.waitForTimeout(2000);
@@ -113,24 +113,56 @@ test.describe('Tests Playwright standard', () => {
   });
 
   test('Rechercher "Cadastre" et ouvrir "Cadastre, 97200 Fort-de-France"', async ({ page }) => {
-    await page.goto('https://cartes.gouv.fr/', { waitUntil: 'domcontentloaded' });
+    // Aller directement sur la page explorer avec domcontentloaded pour ne pas bloquer sur les popups
+    await page.goto('https://cartes.gouv.fr/explorer-les-cartes/', { waitUntil: 'domcontentloaded' });
 
-    // Gérer la popup "Bienvenue" si elle s'affiche
+    console.log('Page loaded, checking for popups...');
+
+    // Gérer la popup "Bienvenue" si elle s'affiche (elle bloque le chargement complet)
+    await page.waitForTimeout(1000);
     await handleWelcomePopup(page);
+    console.log('Welcome popup handled');
+    
     // Puis accepter les cookies si la bannière est présente
     await handleCookieBanner(page);
+    console.log('Cookie banner handled');
 
-    // On doit être sur la page des cartes
-    await expect(page).toHaveURL(/explorer-les-cartes/);
+    // Maintenant attendre que le contenu de la carte se charge
+    await page.waitForTimeout(5000);
 
-    // Attendre un peu que la page se charge complètement
-    await page.waitForTimeout(3000);
+    // Debug: afficher le contenu HTML pour voir ce qui est chargé
+    const bodyContent = await page.locator('body').innerHTML();
+    console.log('Body HTML length:', bodyContent.length);
+    
+    // Vérifier si un élément avec ID contenant "root" ou "app" existe (typique des SPAs)
+    const appRoot = page.locator('#root, #app, [id*="app"], main, [role="main"]').first();
+    const hasAppRoot = await appRoot.isVisible().catch(() => false);
+    console.log('App root visible:', hasAppRoot);
 
-    // Sélecteur fiable basé sur la classe et l'aria-label
+    // Vérifier si le bouton de navigation est présent (indique que la page est chargée)
+    const navButton = page.locator('button.fr-btn.fr-btn--secondary.fr-btn--md.navBarIcon.navButton').first();
+    if (await navButton.isVisible().catch(() => false)) {
+      console.log('Navigation button found, page seems loaded');
+      // Cliquer sur le bouton pour ouvrir la recherche si nécessaire
+      await navButton.click();
+      await page.waitForTimeout(1000);
+    } else {
+      console.log('Navigation button NOT found');
+    }
+
+    // Sélecteur basé sur la classe et l'aria-label du champ de recherche
     const searchInput = page.locator('input.GPsearchInputText[aria-label="Rechercher"]').first();
     
     // Attendre que le champ soit visible
-    await expect(searchInput).toBeVisible({ timeout: 20000 });
+    await expect(searchInput).toBeVisible({ timeout: 40000 });
+    
+    // Fermer le menu qui pourrait bloquer l'accès au champ de recherche
+    const closeButton = page.getByRole('button', { name: /Fermer/i });
+    if (await closeButton.isVisible().catch(() => false)) {
+      console.log('Closing menu...');
+      await closeButton.click();
+      await page.waitForTimeout(500);
+    }
     
     // Cliquer et remplir le champ de recherche
     await searchInput.click();

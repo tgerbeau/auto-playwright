@@ -18,7 +18,21 @@ module.exports = defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { 
+        ...devices['Desktop Chrome'],
+        // Use new headless mode with better WebGL support
+        headless: true,
+        // Add args to make headless mode work better with WebGL
+        launchOptions: {
+          args: [
+            '--disable-blink-features=AutomationControlled',
+            '--enable-webgl',
+            '--use-gl=angle',
+            '--use-angle=swiftshader',
+            '--disable-gpu-sandbox',
+          ],
+        },
+      },
     },
   ],
 });

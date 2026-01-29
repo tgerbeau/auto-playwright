@@ -1,5 +1,4 @@
 const { test, expect } = require('@playwright/test');
-const { auto } = require('auto-playwright/dist');
 
 // Gestion commune de la popup "Bienvenue sur cartes.gouv.fr"
 async function handleWelcomePopup(page) {
@@ -47,62 +46,7 @@ test('Vérifier que la page cartes.gouv.fr se charge correctement', async ({ pag
   await expect(page).toHaveURL(/explorer-les-cartes/);
 });
 
-// Tests avec auto-playwright (nécessite OPENAI_API_KEY valide)
-test.describe('Tests avec auto-playwright', () => {
-  test.beforeEach(async ({ page }) => {
-    test.skip(!process.env.OPENAI_API_KEY, 'Ces tests nécessitent OPENAI_API_KEY');
-    
-    // Navigation commune : aller sur la page et cliquer sur "Accéder aux cartes"
-    await page.goto('https://cartes.gouv.fr/', { waitUntil: 'domcontentloaded' });
-    
-    // Gérer la popup "Bienvenue" si elle s'affiche
-    await handleWelcomePopup(page);
-
-    // Puis accepter les cookies si la bannière est présente
-    await handleCookieBanner(page);
-
-    await expect(page).toHaveURL(/explorer-les-cartes/);
-    
-    // Gérer les cookies si présents après la navigation
-    const cookieBanner = page.getByText(/À propos des cookies sur cartes\.gouv\.fr/i);
-    if (await cookieBanner.isVisible().catch(() => false)) {
-      const refuseButton = page.getByRole('button', { name: /Tout refuser/i });
-      await refuseButton.click();
-      await page.waitForTimeout(1000);
-    }
-  });
-
-  test('Rechercher une carte avec auto-playwright', async ({ page }) => {
-    // Le beforeEach a déjà navigué vers explorer-les-cartes
-    
-    try {
-      // Utiliser auto-playwright pour rechercher
-      await auto('Rechercher "cadastre" dans la barre de recherche', { page });
-      await page.waitForTimeout(3000);
-    } catch (error) {
-      console.log('Erreur auto-playwright (vérifiez votre clé API):', error.message);
-      test.skip();
-    }
-  });
-
-  test('Appliquer un second scénario de recherche avec auto-playwright', async ({ page }) => {
-    // Le beforeEach a déjà navigué vers explorer-les-cartes
-
-    try {
-      // Scénario supplémentaire pour illustrer l\'utilisation d\'auto-playwright
-      await auto(
-        'Dans la page actuelle, vérifier qu\'une zone de recherche est disponible, puis chercher "cadastre parcellaire".',
-        { page }
-      );
-      await page.waitForTimeout(3000);
-    } catch (error) {
-      console.log('Erreur auto-playwright (vérifiez votre clé API):', error.message);
-      test.skip();
-    }
-  });
-});
-
-// Tests sans auto-playwright
+// Tests Playwright standard
 test.describe('Tests Playwright standard', () => {
   test('Naviguer et rechercher une carte', async ({ page }) => {
     await page.goto('https://cartes.gouv.fr/', { waitUntil: 'domcontentloaded' });
